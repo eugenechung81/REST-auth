@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import os
 from flask import Flask, abort, request, jsonify, g, url_for
-from flask.ext.sqlalchemy import SQLAlchemy
-from flask.ext.httpauth import HTTPBasicAuth
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, String, Integer
+from flask_httpauth import HTTPBasicAuth
 from passlib.apps import custom_app_context as pwd_context
 from itsdangerous import (TimedJSONWebSignatureSerializer
                           as Serializer, BadSignature, SignatureExpired)
@@ -18,11 +19,38 @@ db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
 
 
-class User(db.Model):
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(32), index=True)
-    password_hash = db.Column(db.String(64))
+user_id_to_users = {}
+
+
+# class Test(db.Model):
+#     __tablename__ = 'tests'
+#     id = Column(Integer, primary_key=True)
+#     username = Column(String(32), index=True)
+#
+# t = Test(username="test")
+# print t
+# t.username
+
+
+# class User(db.Model):
+class User(object):
+    '''
+    u = User(username='test')
+    import json
+    json.dumps(u)
+    import jsonpickle
+    json_str = jsonpickle.encode(u)
+    print json_str
+    '''
+    # __tablename__ = 'users'
+    # id = Column(Integer, primary_key=True)
+    # username = Column(String(32), index=True)
+    # password_hash = Column(String(64))
+
+    def __init__(self, id, username, password_hash):
+        self.id = id
+        self.username = username
+        self.password_hash = password_hash
 
     def hash_password(self, password):
         self.password_hash = pwd_context.encrypt(password)
@@ -43,8 +71,13 @@ class User(db.Model):
             return None    # valid token, but expired
         except BadSignature:
             return None    # invalid token
-        user = User.query.get(data['id'])
+        # user = User.query.get(data['id'])
+        user = user_id_to_users.get(data['id'])
+        print user
         return user
+
+user_id_to_users[1] = User(1, username="miguel", password_hash=pwd_context.encrypt("python"))
+
 
 
 @auth.verify_password
@@ -53,7 +86,8 @@ def verify_password(username_or_token, password):
     user = User.verify_auth_token(username_or_token)
     if not user:
         # try to authenticate with username/password
-        user = User.query.filter_by(username=username_or_token).first()
+        # user = User.query.filter_by(username=username_or_token).first()
+        user = filter(lambda x: x.username == username_or_token, user_id_to_users.values())[0]
         if not user or not user.verify_password(password):
             return False
     g.user = user
